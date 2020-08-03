@@ -11,6 +11,9 @@ import torchvision
 import torchvision.transforms as transforms
 
 from auxilary.videoMange import displayHorz
+from auxilary.videoMange import videoPlayer
+from auxilary.videoMange import vid2lst
+from auxilary.videoMange import lst2vid
 
 
 def segModel():
@@ -23,6 +26,7 @@ def segModel():
 def dlSegment(img, model):
     """dlSegment(img, model) => masked image"""
     """Deep Learning segmentation algorithm"""
+    print("Segmenting video")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     preprocess = transforms.Compose([transforms.ToTensor(),
                                       transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -40,43 +44,28 @@ def dlSegment(img, model):
         output = model(input_batch)['out'][0]
     pred = np.where(output.argmax(0) == 37, 1, 0).astype('uint8')
     mask = np.zeros_like(img)
-    mask[pred == 1] = [255, 165,0]
+    mask[pred == 1] = [255, 165, 0]
     return mask
 
 
-def tennisBallDetect(video_path='../tennis_test.mp4'):
+def tennisBallDetect(video_path, mask_path):
     """Detect a tennis ball in a video"""
     # get the video file input
-    if not os.path.isfile(video_path):
-        print(f'{video_path} doesn\'t exists')
-        return
-    vid = cv2.VideoCapture(video_path)
-
+    frms, info = vid2lst(video_path, ds=2, info=['fps', 'width', 'height'])
 
     # get the model
     model = segModel()
 
-    ret, frm = vid.read()
+    mask = []
+    for frm in frms:
+        m = dlSegment(frm, model)
+        plt.imshow(np.hstack([frm, m]))
+        mask.append(m)
 
-    fps = int(vid.get(cv2.CAP_PROP_FPS))
-    size = frm.shape[0:2]
-    dir, file = os.path.split(video_path)
-    file, ext = os.path.splitext(file)
-    vid_m_path = os.path.join(dir, file + "_mask" + ext)
-    fourcc = cv2.VideoWriter_fourcc(*"DIVX")
-    vw = cv2.VideoWriter(vid_m_path, fourcc, fps, size)
-    fig, ax = plt.subplots()
-    while ret:
-        frm = cv2.cvtColor(frm, cv2.COLOR_BGR2RGB)
-        mask = dlSegment(frm, model)
-        displayHorz([frm, mask])
-        vw.write(mask)
-        ret, frm = vid.read()
-
-    vid.release()
-    vw.release()
-
+    lst2vid(mask, info, mask_path)
 
 
 if __name__ == "__main__":
-    tennisBallDetect()
+    videoPlayer("../test_tennis.avi", ['rgb', 'h', 'v'])
+    tennisBallDetect("../tennis_test.mp4", "../tennis_test_mask.mp4")
+    videoPlayer("../tennis_test_mask.mp4")

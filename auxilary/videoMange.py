@@ -18,6 +18,53 @@ def parseChannel(im, tags = []):
     return ret
 
 
+def vid2lst(fname, ds=1 , info=[]):
+    """Get a video parsed into frames on a list"""
+    print(f'Getting file {fname}')
+    if not os.path.isfile(fname):
+        print(f'{fname} doesn\'t exists')
+        return []
+    cap = cv2.VideoCapture(fname)
+    ret, frm = cap.read()
+    lst = []
+    while ret:
+        if ds > 1:
+            h, w = frm.shape[:2]
+            frm = cv2.resize(frm, (w // ds , h // ds))
+        lst.append(cv2.cvtColor(frm, cv2.COLOR_BGR2RGB))
+        ret, frm = cap.read()
+
+    ret = lst
+    if info:
+        vidInfo = fps = videoInformation(cap, ret=info)
+        ret = [lst, vidInfo]
+
+    cap.release()
+    print("Got {:4d} frames".format(len(lst)))
+
+    return ret
+
+
+def lst2vid(lst, info, path):
+    print("Taking {:4d} frames".format(len(lst)))
+    [fps, w, h] = info
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
+    out = cv2.VideoWriter(path, fourcc, int(fps), (int(w), int(h)))
+    # out = cv2.VideoWriter('project.avi', cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+
+    for i in range(len(lst)):
+        out.write(lst[i])
+    out.release()
+    print("Frames saved as", path)
+
+
+def lst2jpg(lst, path):
+    print("Taking {:4d} frames".format(len(lst)))
+    for i, img in enumerate(lst):
+        fname = str(i).zfill(len(str(len(lst))))
+        cv2.imwrite(os.path.join(path, fname + ".jpg"), img)
+
+
 def captureChannel(im, ch):
     """Captures a requested channel out of an image with setting"""
     if ch is 'rgb':
@@ -25,16 +72,16 @@ def captureChannel(im, ch):
 
     if ch in ['r','g','b']:
         sl = np.zeros(im.shape, dtype=np.uint8)
-        clr = {'r': 2, 'g': 1, 'b': 0}
+        clr = {'r': 0, 'g': 1, 'b': 2}
 
         sl[:, :, clr[ch]] = np.array(im[:, :, clr[ch]], dtype=np.uint8)
         return sl
-    if ch in ['h','s','d']:
+    if ch in ['h','s','v']:
         sl = np.full(im.shape, 255,  dtype=np.uint8)
-        im = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
+        im = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
         clr = {'h': 0, 's': 1, 'v': 2}
         sl[:, :, clr[ch]] = np.array(im[:, :, clr[ch]], dtype=np.uint8)
-        return cv2.cvtColor(sl, cv2.COLOR_HSV2BGR)
+        return cv2.cvtColor(sl, cv2.COLOR_HSV2RGB)
 
 
 def displayHorz(lst, fig, hstack=True):
@@ -43,7 +90,7 @@ def displayHorz(lst, fig, hstack=True):
 
         #ax.imshow(np.hstack(lst))
         #plt.show()
-        cv2.imshow("win", np.hstack(lst))
+        cv2.imshow("win", cv2.cvtColor(np.hstack(lst), cv2.COLOR_RGB2BGR))
 
 
 def videoInformation(cap, ret=[]):
@@ -51,7 +98,7 @@ def videoInformation(cap, ret=[]):
     hgt = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
     bgr = cap.get(cv2.CAP_PROP_CONVERT_RGB)
-    print(f'Video resolution is : {wdt}x{hgt}')
+    print("Video resolution is : {:4d}x{:4d}".format(int(wdt), int(hgt)))
     print(f'at {fps} FPS')
 
     dict = {'width': wdt, 'height': hgt, 'fps': fps , 'bgr':bgr}
@@ -66,18 +113,13 @@ def videoInformation(cap, ret=[]):
 
 
 def videoPlayer(fname, taglist=[]):
-    if not os.path.isfile(fname):
-        print(f'{fname} doesn\'t exists')
-        return
-    cap = cv2.VideoCapture(fname)
-    fps = videoInformation(cap, ret=['fps'])
+
+    frms, fps = vid2lst(fname, ds=4, info=['fps'])
     framePeriod = int(np.floor(1000 / fps))
     wait = framePeriod
 
-    ret, frm = cap.read()
     fig , ax = plt.subplots()
-    while ret:
-
+    for frm in frms:
         displayHorz(parseChannel(frm, taglist), fig)
         if cv2.waitKey(wait) & 0xFF == 32:
             key = cv2.waitKey(0) & 0xFF
@@ -87,9 +129,9 @@ def videoPlayer(fname, taglist=[]):
                 wait = 0
             if key == 32:
                 wait = framePeriod
-        ret, frm = cap.read()
 
-    cap.release()
+    cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     videoPlayer("../../test1.mp4",['rgb','h'])
