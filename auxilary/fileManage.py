@@ -1,7 +1,9 @@
 import os
 import sys
+import cv2
 import glob
 import shutil
+import numpy as np
 import pandas as pd
 # from xml.dom import minidom
 import xml.etree.ElementTree as ET
@@ -10,7 +12,7 @@ import xml.etree.ElementTree as ET
 def readYolo(path):
     """readYolo(path)"""
     """Gets the data from a frame file"""
-    data = pd.read_csv(path, sep=" ", header=None)
+    data = pd.read_csv(path, sep=" ", header=None, dtype=str)
     data.columns = ["obj", "x", "y", "w", "h"]
     return data
 
@@ -57,7 +59,23 @@ def voc2yolo(pin, pout):
 
 
 
-# def yolo2voc(pin, pout):
+def yolo2csv(pin, pout, label=0):
+    csv = open(pout, 'w')
+    frms = []
+    for frm in glob.glob(pin + "/*.txt"):
+        s = ""
+        with open(frm, 'r') as frame:
+            print(os.path.basename(frm))
+            data = frame.readlines()
+            for line in data:
+                s += line if label == int(line.split(" ")[0]) else ""
+        s = '\n' if  not s else s
+        print('line is:{}'.format(s.strip('\n')))
+        frms.append(s)
+    frms[-1] = frms[-1].strip('\n')
+    csv.writelines(frms)
+    csv.close()
+
 
 
 def pickObjYolo(pin, pout=None, obj=0):
@@ -65,19 +83,31 @@ def pickObjYolo(pin, pout=None, obj=0):
     if pout:
         shutil.copytree(pin, pout)
         path = pout
-    for f in os.listdir(path):
-        if ".txt" in f and "classes" not in f:
+    for f in glob.glob(os.path.join(path, "*.txt")):
+        if ".txt" in f and "classes" not in f and (os.path.getsize(f) > 0):
             print(f)
             p = os.path.join(path, f)
             data = readYolo(p)
-            sub = data[data["obj"] == obj]
+            sub = data[data["obj"] == str(obj)]
             sub.to_csv(p, sep=" ", header=False, index=False)
 
 
-if __name__ == "__main__":
-    print("hello")
-    orig = r'C:\Users\shura\OneDrive\EE\Semester 7\Poject A\raw_data\capture_right_2019_04_14_14_28_51.avi_from_0_to_10'
-    path = r'C:\Users\shura\OneDrive\EE\Semester 7\Poject A\raw_data\backup'
-    pickObjYolo(orig, path, 1)
+def downScale(path, scale=2):
+    if os.path.exists(path):
+        save_dir = path + "_ds"
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        for img in glob.glob(path + "\*.png"):
+            print(os.path.basename(img))
+            im = cv2.imread(img)
+            H , W , _ = im.shape
+            im = cv2.resize(im, (int(W / scale), int(H / scale)))
+            im_path = os.path.join(save_dir , os.path.basename(img))
+            cv2.imwrite(im_path, im)
 
-    filesNumberFix(path, loc=1, l=3, ofs=600)
+
+
+if __name__ == "__main__":
+    path = r'..\..\yolo-ball-dataset-test_ds\labels'
+    dest = r'C:\Users\shura\OneDrive - Technion\EE\Poject A\tennis\yolo-ball-dataset-rampup\result.csv'
+    pickObjYolo(path)

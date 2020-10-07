@@ -66,6 +66,6 @@ def tennisBallDetect(video_path, mask_path):
 
 
 if __name__ == "__main__":
-    videoPlayer("../test_tennis.avi", ['rgb', 'h', 'v'])
-    tennisBallDetect("../tennis_test.mp4", "../tennis_test_mask.mp4")
-    videoPlayer("../tennis_test_mask.mp4")
+    path = r'../yolov5/'
+    os.chdir(path)
+

@@ -4,6 +4,7 @@ import cv2
 import os
 import sys
 import scipy.io
+import glob
 import matplotlib.pyplot as plt
 import skimage
 
@@ -65,6 +66,35 @@ def lst2jpg(lst, path):
         cv2.imwrite(os.path.join(path, fname + ".jpg"), img)
 
 
+def jpg2lst(path):
+    print("Taking frames from {}".format(path))
+    lst = glob.glob(os.path.join(path, "*.jpg"))
+    if not lst:
+        lst = glob.glob(os.path.join(path, "*.png"))
+    print("    There are {} frames".format(len(lst)))
+    return lst
+
+
+def drawRct(img, bb, dct):
+    label = dct[bb[0]]
+    h, w = img.shape[:2]
+    x1 = int(w * (bb[1] - (bb[3] / 2)))
+    x2 = int(w * (bb[1] + (bb[3] / 2)))
+    y1 = int(h * (bb[2] - (bb[4] / 2)))
+    y2 = int(h * (bb[2] + (bb[4] / 2)))
+    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 6)
+    labelSize = cv2.getTextSize(label, cv2.FONT_HERSHEY_COMPLEX, 0.5, 2)
+    # print('labelSize>>',labelSize)
+    _x1 = x1
+    _y1 = y1  # +int(labelSize[0][1]/2)
+    _x2 = _x1 + labelSize[0][0]
+    _y2 = y1 - int(labelSize[0][1])
+    cv2.rectangle(img, (_x1, _y1), (_x2, _y2), (0, 255, 0), cv2.FILLED)
+    cv2.putText(img, label, (x1, y1), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0), 1)
+
+    return img
+
+
 def captureChannel(im, ch):
     """Captures a requested channel out of an image with setting"""
     if ch is 'rgb':
@@ -112,6 +142,42 @@ def videoInformation(cap, ret=[]):
     return lst
 
 
+def video_with_BB(path):
+    frms = jpg2lst(os.path.join(path, "images"))
+    lbls = glob.glob(os.path.join(path, "labels/*.txt"))
+    with open(os.path.join(path, "ball.yaml") , 'r') as yaml:
+        in_block = False
+        block = ""
+        for line in yaml.readlines():
+            if "names:" in line:
+                in_block = True
+            if in_block:
+                if "]" in line:
+                    in_block = False
+                block += line
+        block = block.replace('\n', '')
+        block = block.replace(' ', '')
+        block = block.replace('names:[', '')
+        block = block.replace(']', '')
+        block = block.replace('\'', '')
+        lbl_dict = {i: lbl for i, lbl in enumerate(block.split(','))}
+    print(lbl_dict)
+    frm_bb = []
+
+    for i in range(len(frms)):
+        frm_bb.append(cv2.imread(frms[i]))
+        lbl = lbls[i]
+        with open(lbl, 'r') as f:
+            for l in f.readlines():
+                bb = [float(i) for i in l.split()]
+                bb[0] = int(l.split()[0])
+                frm_bb[i] = drawRct(frm_bb[i], bb, lbl_dict)
+    info = [15, frm_bb[0].shape[1], frm_bb[0].shape[0]]
+    lst2vid(frm_bb, info, os.path.join(path, "data_bb.mp4"))
+
+
+
+
 def videoPlayer(fname, taglist=[]):
 
     frms, fps = vid2lst(fname, ds=4, info=['fps'])
@@ -134,4 +200,5 @@ def videoPlayer(fname, taglist=[]):
 
 
 if __name__ == "__main__":
-    videoPlayer("../../test1.mp4",['rgb','h'])
+    path = r'C:\Users\shura\OneDrive - Technion\EE\Poject A\yolo-ball-dataset-train_ds'
+    video_with_BB(path)
