@@ -110,4 +110,16 @@ def downScale(path, scale=2):
 if __name__ == "__main__":
     path = r'..\..\yolo-ball-dataset-test_ds\labels'
     dest = r'C:\Users\shura\OneDrive - Technion\EE\Poject A\tennis\yolo-ball-dataset-rampup\result.csv'
-    pickObjYolo(path)
+    p = r'..\..\fix\labels'
+
+    for i in l:
+        f = open(i, "r")
+        lines = f.readlines()
+        f.close()
+        f = open(i, "w")
+        for line in lines:
+            if float(line.split()[3]) > 0.01:
+                print(line.strip('\n'))
+                line = ""
+            f.write(line)
+        f.close()

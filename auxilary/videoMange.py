@@ -200,5 +200,5 @@ def videoPlayer(fname, taglist=[]):
 
 
 if __name__ == "__main__":
-    path = r'C:\Users\shura\OneDrive - Technion\EE\Poject A\yolo-ball-dataset-train_ds'
+    path = r'C:\Users\shura\OneDrive - Technion\EE\Poject A\fix'
     video_with_BB(path)
